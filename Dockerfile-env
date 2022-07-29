@@ -1,0 +1,20 @@
+ARG BUILD_STEP
+
+FROM ubuntu AS step0
+
+RUN echo "step0"
+
+ENV BUILD=0
+
+FROM ubuntu AS step1
+
+RUN echo "step1"
+
+ENV BUILD=1
+
+FROM step${BUILD_STEP} AS final
+
+RUN echo "RUNNING ${BUILD_STEP}"
+
+RUN if [ $BUILD -eq 0 ]; then echo "run step0"; fi
+RUN if [ $BUILD -eq 1 ]; then echo "run step1"; fi
