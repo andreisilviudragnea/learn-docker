@@ -9,33 +9,26 @@ Let's take this example:
 
 ```Dockerfile
 FROM ubuntu AS base
-
-RUN echo "base" > base
+RUN echo "base"
 
 FROM base AS step1
+RUN echo "step1"
 
-COPY --from=base base .
-
-RUN echo "step1" >> base && cat base
-
-FROM base as step2
-
-COPY --from=base base .
-
-RUN echo "step2" >> base && cat base
+FROM base AS step2
+RUN echo "step2"
 ```
 
-Conceptually, this Dockerfile is equivalent to:
+Conceptually, the above Dockerfile is equivalent to this Makefile:
 
 ```Makefile
 base:
-	echo "base" > base
+	echo "base"
 
 step1: base
-	echo "step1" >> base && cat base
+	echo "step1"
 
 step2: base
-	echo "step2" >> base && cat base
+	echo "step2"
 ```
 
 Let's suppose we want to run `step2`, which depends on `base`. The build should skip
@@ -49,29 +42,28 @@ building `step1`:
     - `--target step2` specifies which step to build
 
 Output:
-```shell
-[+] Building 0.4s (8/8) FINISHED                                                                                                                                                                                
+```console
+[+] Building 0.4s (7/7) FINISHED                                                                                                                                                                                
  => [internal] load build definition from Dockerfile                                                                                                                                                       0.0s
- => => transferring dockerfile: 37B                                                                                                                                                                        0.0s
+ => => transferring dockerfile: 36B                                                                                                                                                                        0.0s
  => [internal] load .dockerignore                                                                                                                                                                          0.0s
  => => transferring context: 2B                                                                                                                                                                            0.0s
  => [internal] load metadata for docker.io/library/ubuntu:latest                                                                                                                                           0.0s
  => CACHED [base 1/2] FROM docker.io/library/ubuntu                                                                                                                                                        0.0s
- => [base 2/2] RUN echo "base" > base                                                                                                                                                                      0.1s
- => [step2 1/2] COPY --from=base base .                                                                                                                                                                    0.0s
- => [step2 2/2] RUN echo "step2" >> base && cat base                                                                                                                                                       0.2s
+ => [base 2/2] RUN echo "base"                                                                                                                                                                             0.1s
+ => [step2 1/1] RUN echo "step2"                                                                                                                                                                           0.2s
  => exporting to image                                                                                                                                                                                     0.0s
  => => exporting layers                                                                                                                                                                                    0.0s
- => => writing image sha256:bba12a83e6bb5a108c2c3336d80d82eef2ff33d7e898106b99e4feddf1ac84fc                                                                                                               0.0s
+ => => writing image sha256:75f86eb8e68bbb50ea2ae1734face750e27c154ec3947696515bfcc90a0774a1                                                                                                               0.0s
 ```
 
 - Make: `make step2`
 
 Output:
-```shell
-echo "base" > base
-echo "step2" >> base && cat base
+```console
+echo "base"
 base
+echo "step2"
 step2
 ```
 
@@ -89,54 +81,48 @@ Enabling BuildKit build can be done by setting the `DOCKER_BUILDKIT=1` environme
 - `DOCKER_BUILDKIT=1`: Running `DOCKER_BUILDKIT=1 docker build --no-cache -f Dockerfile --target step2 .` produces the
   same result as above:
 
-```shell
-[+] Building 0.4s (8/8) FINISHED                                                                                                                                                                                
+```console
+[+] Building 0.4s (7/7) FINISHED                                                                                                                                                                                
  => [internal] load build definition from Dockerfile                                                                                                                                                       0.0s
- => => transferring dockerfile: 37B                                                                                                                                                                        0.0s
+ => => transferring dockerfile: 36B                                                                                                                                                                        0.0s
  => [internal] load .dockerignore                                                                                                                                                                          0.0s
  => => transferring context: 2B                                                                                                                                                                            0.0s
  => [internal] load metadata for docker.io/library/ubuntu:latest                                                                                                                                           0.0s
  => CACHED [base 1/2] FROM docker.io/library/ubuntu                                                                                                                                                        0.0s
- => [base 2/2] RUN echo "base" > base                                                                                                                                                                      0.1s
- => [step2 1/2] COPY --from=base base .                                                                                                                                                                    0.0s
- => [step2 2/2] RUN echo "step2" >> base && cat base                                                                                                                                                       0.2s
+ => [base 2/2] RUN echo "base"                                                                                                                                                                             0.1s
+ => [step2 1/1] RUN echo "step2"                                                                                                                                                                           0.2s
  => exporting to image                                                                                                                                                                                     0.0s
  => => exporting layers                                                                                                                                                                                    0.0s
- => => writing image sha256:bba12a83e6bb5a108c2c3336d80d82eef2ff33d7e898106b99e4feddf1ac84fc                                                                                                               0.0s
+ => => writing image sha256:4a4e22dc4e8bb1f9cfcbdc88f1ac699e5542a653803066ec812c19e5dac811d7                                                                                                               0.0s
 ```
 
 - `DOCKER_BUILDKIT=0`: Running `DOCKER_BUILDKIT=0 docker build --no-cache -f Dockerfile --target step2 .` produces a
   surprising result:
 
-```shell
-Sending build context to Docker daemon  82.94kB
-Step 1/8 : FROM ubuntu AS base
+```console
+Sending build context to Docker daemon  178.7kB
+Step 1/6 : FROM ubuntu AS base
  ---> a7870fd478f4
-Step 2/8 : RUN echo "base" > base
- ---> Running in 7420067d5827
-Removing intermediate container 7420067d5827
- ---> 3b48f2a6ced5
-Step 3/8 : FROM base AS step1
- ---> 3b48f2a6ced5
-Step 4/8 : COPY --from=base base .
- ---> 8d87e7b24ab7
-Step 5/8 : RUN echo "step1" >> base && cat base
- ---> Running in ce122e63332b
+Step 2/6 : RUN echo "base"
+ ---> Running in 26de818035ee
 base
+Removing intermediate container 26de818035ee
+ ---> 0f81232dc95d
+Step 3/6 : FROM base AS step1
+ ---> 0f81232dc95d
+Step 4/6 : RUN echo "step1"
+ ---> Running in 40e2c649b4d4
 step1
-Removing intermediate container ce122e63332b
- ---> 5ca792943727
-Step 6/8 : FROM base as step2
- ---> 3b48f2a6ced5
-Step 7/8 : COPY --from=base base .
- ---> 7a7bee9439f5
-Step 8/8 : RUN echo "step2" >> base && cat base
- ---> Running in c30b323f489c
-base
+Removing intermediate container 40e2c649b4d4
+ ---> ec0d62e6d76d
+Step 5/6 : FROM base AS step2
+ ---> 0f81232dc95d
+Step 6/6 : RUN echo "step2"
+ ---> Running in 7f3de2e21bb8
 step2
-Removing intermediate container c30b323f489c
- ---> 5e132c82a5ba
-Successfully built 5e132c82a5ba
+Removing intermediate container 7f3de2e21bb8
+ ---> 426d0a2abc9a
+Successfully built 426d0a2abc9a
 ```
 
 It looks like `step1` has been run too, even though it should have been skipped.
@@ -145,59 +131,47 @@ Let's change `FROM base AS step2` to `FROM ubuntu AS step2` in the `Dockerfile` 
 
 ```Dockerfile
 FROM ubuntu AS base
-
-RUN echo "base" > base
+RUN echo "base"
 
 FROM base AS step1
-
-COPY --from=base base .
-
-RUN echo "step1" >> base && cat base
+RUN echo "step1"
 
 FROM ubuntu AS step2
-
-COPY --from=base base .
-
-RUN echo "step2" >> base && cat base
+RUN echo "step2"
 ```
 
 `DOCKER_BUILDKIT=0 docker build --no-cache -f Dockerfile --target step2 .`:
 
-```shell
-Sending build context to Docker daemon  83.97kB
-Step 1/8 : FROM ubuntu AS base
+```console
+Sending build context to Docker daemon  178.7kB
+Step 1/6 : FROM ubuntu AS base
  ---> a7870fd478f4
-Step 2/8 : RUN echo "base" > base
- ---> Running in da5a7ac19666
-Removing intermediate container da5a7ac19666
- ---> 1215f4f425e5
-Step 3/8 : FROM base AS step1
- ---> 1215f4f425e5
-Step 4/8 : COPY --from=base base .
- ---> b08ca2f4d64f
-Step 5/8 : RUN echo "step1" >> base && cat base
- ---> Running in c8c4bc7a71c8
+Step 2/6 : RUN echo "base"
+ ---> Running in 32ed2ee444d3
 base
+Removing intermediate container 32ed2ee444d3
+ ---> 802165f5e8cb
+Step 3/6 : FROM base AS step1
+ ---> 802165f5e8cb
+Step 4/6 : RUN echo "step1"
+ ---> Running in 2b66f46be714
 step1
-Removing intermediate container c8c4bc7a71c8
- ---> 86cf5be05860
-Step 6/8 : FROM ubuntu AS step2
+Removing intermediate container 2b66f46be714
+ ---> babac8e05c0c
+Step 5/6 : FROM ubuntu AS step2
  ---> a7870fd478f4
-Step 7/8 : COPY --from=base base .
- ---> 2ac88c035598
-Step 8/8 : RUN echo "step2" >> base && cat base
- ---> Running in 4c97e4729879
-base
+Step 6/6 : RUN echo "step2"
+ ---> Running in a8b0caf2afc2
 step2
-Removing intermediate container 4c97e4729879
- ---> f1285ddd546a
-Successfully built f1285ddd546a
+Removing intermediate container a8b0caf2afc2
+ ---> 492584095b20
+Successfully built 492584095b20
 ```
 
-Without BuildKit, Docker multi-stage builds execute all the steps from the beginning of the Dockerfile up to the specified
-step, even if some steps are not dependencies of the requested step.
+Without BuildKit, Docker multi-stage builds execute all the stages from the beginning of the Dockerfile up to the specified
+stage, even if some stages are not dependencies of the requested stage.
 
-As a hint, the output of `docker build` command is different when BuildKit is enabled, as the build steps of each stage
+As a hint, the output of `docker build` command is different when BuildKit is enabled, as the steps of each build stage
 are present in the output (`[step2 1/2]`). Knowing how to detect if BuildKit is enabled by inspecting output can be helpful
 when debugging.
 
@@ -230,7 +204,7 @@ RUN if [ $BUILD -eq 1 ]; then echo "run step1"; fi
 
 - `DOCKER_BUILDKIT=0 docker build --no-cache -f Dockerfile-env . --build-arg BUILD_STEP=1`:
 
-```shell
+```console
 Sending build context to Docker daemon    106kB
 Step 1/11 : ARG BUILD_STEP
 Step 2/11 : FROM ubuntu AS step0
@@ -279,7 +253,7 @@ in the `final` step, `BUILD=1` since `FROM step1 AS final`.
 
 - `DOCKER_BUILDKIT=1 docker build --no-cache -f Dockerfile-env . --build-arg BUILD_STEP=1`
 
-```shell
+```console
 [+] Building 0.7s (9/9) FINISHED                                                                                                                                                                                
  => [internal] load build definition from Dockerfile-env                                                                                                                                                   0.0s
  => => transferring dockerfile: 41B                                                                                                                                                                        0.0s
